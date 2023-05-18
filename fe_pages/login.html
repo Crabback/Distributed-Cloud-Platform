@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <title>Sign in - PennCloud</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    /* CSS */
+    body {
+      background-color: #4285f4;
+      background-image: url("./images/login_bg.png");
+      background-size: 50%;
+      background-position: left;
+      background-repeat: repeat-x;
+    }
+
+    .container {
+      margin: auto;
+      margin-top: 5%;
+      width: 360px;
+      padding: 20px;
+      background-color: #fff;
+      border-radius: 5px;
+      box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+      text-align: center;
+    }
+
+    .logo {
+      margin: auto;
+      width: 360px;
+      padding: 0px;
+      background-color: #fff;
+      border-radius: 5px;
+      text-align: center;
+    }
+
+    img {
+      margin: 0;
+      width: 30%;
+    }
+
+    h1 {
+      color: #000000;
+      font-size: 28px;
+      font-weight: 400;
+      margin-top: 0;
+    }
+
+    h2 {
+      color: #4285f4;
+      font-size: 25px;
+      font-weight: 300;
+      margin-top: 0;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 20px;
+      margin: 0 0;
+      display: inline-block;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 16px;
+    }
+
+    input[type="submit"] {
+      background-color: #4285f4;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      padding: 12px 20px;
+      font-size: 16px;
+      margin-top: 30px;
+    }
+
+    input[type="submit"]:hover {
+      background-color: #3367d6;
+    }
+
+    p {
+      margin-top: 24px;
+    }
+
+    a {
+      color: #4285f4;
+    }
+
+    .username-label,
+    .password-label {
+      position: relative;
+      background-color: #fff;
+      top: 15px;
+      left: -20x;
+      font-size: 12px;
+      font-weight: bold;
+      color: #555;
+      margin: 10px;
+      width: 160px;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <div class="logo">
+      <img src="images/Cloud.png" alt="Penn Cloud" />
+      <h2>Penn Cloud</h2>
+    </div>
+    <h1>Sign in</h1>
+    <form>
+      <div class="username-label">Enter your username</div>
+      <input type="text" name="username" id="username" placeholder="Username" required /><br />
+      <div class="password-label">Enter your password</div>
+      <input type="text" name="password" id="password" placeholder="Password" required /><br />
+      <input type="submit" value="Submit" />
+    </form>
+    <p>
+      Not having an account?
+      <a href="/register">Create account</a> to explore
+      the best Penn Cloud!
+    </p>
+  </div>
+  <script>
+    $(document).ready(function() {
+      $('form').submit(function(event) {
+        // Prevent the form from submitting normally
+        event.preventDefault();
+
+        // Send an AJAX request to the server
+        $.ajax({
+          type: 'POST',
+          url: '/login',
+          data: $(this).serialize(),
+          success: function(response, status, jqXHR) {
+            // Handle the response from the server
+            alert(response);
+            if (response === "Successful login") {
+		        // When the user logs in successfully, store their login status in sessionStorage
+				sessionStorage.setItem('isLoggedIn', 'true');
+				sessionStorage.setItem('username', $('#username').val());
+				// redirect to home page
+		        window.location.href = '/home';
+		    } 
+          },
+          error: function(jqXHR, status, error) {
+          console.log("jqXHR:", jqXHR, "status:", status, "error:", error);
+            // Handle any errors that occur during the request
+            alert('An error occurred: ' + error);
+          }
+        });
+      });
+    });
+  </script>
+</body>
+
+</html>

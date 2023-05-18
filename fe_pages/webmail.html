@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penn Cloud Mail</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        nav {
+            background-color: #0077be;
+        }
+
+        .container {
+            margin-top: 2rem;
+        }
+
+        table.striped>tbody>tr:nth-child(odd) {
+            background-color: white;
+        }
+
+        table.striped>tbody>tr:nth-child(even) {
+            background-color: #f5f5f5;
+        }
+
+        table.striped>tbody>tr {
+            border-bottom: 1px solid #696969;
+        }
+
+        .body-cell {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <nav>
+            <div class="nav-wrapper">
+                <a href="/home" class="brand-logo" style="margin-left: 15px;">Penn Cloud</a>
+                <ul id="nav-mobile" class="right hide-on-med-and-down">
+                    <li><a href="/home">Home Page</a></li>
+                    <li><a href="/storage">Storage</a></li>
+                    <li><a href="/webmail">Webmail</a></li>
+                    <li><a href="http://localhost:8888">Admin</a></li>
+                    <li id="logged-in-status" style="font-weight: bold;"><a href="/login"> Login </a></li>
+                    <li id="reset-password" style="font-weight: bold;"><a onclick="reset_password()"
+                            href="/reset_password">Reset Password</a></li>
+                    <li><a id="logged-in-user" style="font-weight: bold;"> No User </a></li>
+                    <li id="user-icon"><img
+                            style="width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; margin-top: 20%;"
+                            src="./images/user_icon.png" alt="User Icon"></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="row">
+
+        </div>
+        <div class="row">
+            <aside class="col s2">
+                <button id="new-message" style="background-color:#0077be" class="btn">New Message</button>
+                <ul class="collection">
+                    <li class="collection-item" id="inbox"><a href="#">Inbox</a></li>
+                    <li class="collection-item" id="sent"><a href="#">Sent</a></li>
+                    <li class="collection-item" id="deleted"><a href="#">Deleted</a></li>
+                </ul>
+            </aside>
+            <section class="col s10">
+                <div id="compose-email" style="display: none;">
+                    <form id="email-form">
+                        <div class="input-field">
+                            <input id="to" type="email" name="to" required>
+                            <label for="to">To</label>
+                        </div>
+                        <div class="input-field">
+                            <input id="subject" type="text" name="subject">
+                            <label for="subject">Subject</label>
+                        </div>
+                        <div class="input-field">
+                            <textarea id="body" class="materialize-textarea" name="body"></textarea>
+                            <label for="body">Body</label>
+                        </div>
+                        <button type="submit" style="background-color:#0077be" class="btn">Send</button>
+                    </form>
+                </div>
+                <table class="striped">
+                    <thead>
+                        <tr>
+                            <th>Sender</th>
+                            <th>Subject</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="emails-table-body">
+                        <!-- List of emails will be populated here -->
+                    </tbody>
+                </table>
+                <script>
+                    let localhosturl = "";
+                    async function fetchEmails(folder) {
+                        try {
+                            const response = await fetch(`${localhosturl}/${folder}`, {
+                                credentials: "include"
+                            });
+                            if (response.ok) {
+                                const data = await response.text();
+                                const emails = [];
+                                const emailBlocks = await data.split("====================\n");
+                                emailBlocks.pop();
+                                emailBlocks.forEach(block => {
+                                    const lines = block.split('\n');
+                                    let email = {
+                                        from: '',
+                                        to: '',
+                                        subject: '',
+                                        body: '',
+                                        uid: '',
+                                        date: ''
+                                    };
+
+                                    // Iterate through each line of the email block
+                                    lines.forEach(line => {
+                                        if (line.startsWith('From: ')) {
+                                            email.from = line.substring(6).trim();
+                                        } else if (line.startsWith('To: ')) {
+                                            email.to = line.substring(3).trim();
+                                        } else if (line.startsWith('Subject: ')) {
+                                            email.subject = line.substring(8).trim();
+                                        } else if (line.startsWith('UID: ')) {
+                                            email.uid = line.substring(5).trim();
+                                        } else if (line.startsWith('Date: ')) {
+                                            email.date = line.substring(6).trim();
+                                        } else {
+                                            email.body += line + '\n';
+                                        }
+                                    });
+                                    emails.push(email);
+                                });
+                                populateEmails(emails);
+                            } else {
+                                throw new Error(`Failed to fetch ${folder} emails`);
+                            }
+                        } catch (error) {
+                            console.error(error);
+                            M.toast({ html: `Error fetching ${folder} emails!`, classes: 'red' });
+                        }
+                    }
+
+                    async function deleteEmail(emailId) {
+                        try {
+                            const confirmDelete = confirm('Are you sure you want to delete this email?');
+                            if (!confirmDelete) {
+                                return;
+                            }
+                            const response = await fetch(`${localhosturl}/deleteemails`, {
+                                credentials: "include",
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': "text/plain",
+                                },
+                                body: emailId,
+                            });
+
+                            if (response.ok) {
+                                M.toast({ html: 'Email deleted successfully!', classes: 'green' });
+                                // Refresh the email list or remove the deleted email from the list
+                                fetchEmails('inbox');
+                            } else {
+                                throw new Error('Failed to delete email');
+                            }
+                        } catch (error) {
+                            console.error(error);
+                            M.toast({ html: 'Error deleting email!', classes: 'red' });
+                        }
+                    }
+
+                    function populateEmails(emails) {
+                        const tbody = document.getElementById('emails-table-body');
+                        tbody.innerHTML = '';
+
+                        emails.forEach(email => {
+                            const tr = document.createElement('tr');
+
+                            tr.setAttribute('data-email-id', email.uid);
+
+                            const senderCell = document.createElement('td');
+                            senderCell.textContent = email.from;
+                            tr.appendChild(senderCell);
+
+                            const subjectCell = document.createElement('td');
+                            subjectCell.textContent = email.subject;
+                            tr.appendChild(subjectCell);
+
+                            const timeCell = document.createElement('td');
+                            timeCell.textContent = email.date;
+                            tr.appendChild(timeCell);
+
+                            const bodyRow = document.createElement('tr');
+                            bodyRow.style.display = 'none';
+                            tbody.appendChild(bodyRow);
+
+                            const bodyCell = document.createElement('td');
+                            bodyCell.colSpan = 3;
+                            bodyCell.innerHTML = "From: " + email.from + "<br>" + "To: " + email.to + "<br>" + "UID: " + email.uid + "<br>" + "Date: " + email.date + "<br>" + email.body.replace(/\n/g, '<br>');
+                            bodyRow.appendChild(bodyCell);
+
+                            const actionsCell = document.createElement('td');
+                            if (folder === 'inbox') {
+                                const replyBtn = document.createElement('button');
+                                replyBtn.textContent = 'Reply';
+                                replyBtn.className = 'btn-small';
+                                replyBtn.style.marginRight = '10px';
+                                replyBtn.onclick = () => {
+                                    document.getElementById('to').value = email.from;
+                                    document.getElementById('subject').value = 'Re: ' + email.subject;
+                                    document.getElementById('compose-email').style.display = 'block';
+                                };
+                                actionsCell.appendChild(replyBtn);
+
+                                const forwardBtn = document.createElement('button');
+                                forwardBtn.textContent = 'Forward';
+                                forwardBtn.className = 'btn-small blue';
+                                forwardBtn.style.marginRight = '10px';
+                                forwardBtn.onclick = () => {
+                                    document.getElementById('to').value = '';
+                                    document.getElementById('subject').value = 'Fwd: ' + email.subject;
+                                    document.getElementById('body').value = '-------- Forwarded Message --------\n' + email.body;
+                                    document.getElementById('compose-email').style.display = 'block';
+                                };
+                                actionsCell.appendChild(forwardBtn);
+
+                                const deleteBtn = document.createElement('button');
+                                deleteBtn.textContent = 'Delete';
+                                deleteBtn.className = 'btn-small red';
+                                deleteBtn.style.marginRight = '10px';
+                                deleteBtn.onclick = () => {
+                                    const emailId = tr.getAttribute('data-email-id');
+                                    deleteEmail(emailId);
+                                };
+                                actionsCell.appendChild(deleteBtn);
+                            }
+
+                            tr.appendChild(actionsCell);
+
+                            tr.onclick = () => {
+                                if (bodyRow.style.display === 'none') {
+                                    bodyRow.style.display = 'table-row';
+                                } else {
+                                    bodyRow.style.display = 'none';
+                                }
+                            };
+
+                            tbody.appendChild(tr);
+                            tbody.appendChild(bodyRow);
+                        });
+                    }
+
+                    // Event listeners for folder clicks
+                    document.getElementById('inbox').addEventListener('click', () => {
+                        folder = 'inbox';
+                        fetchEmails('inbox');
+                    });
+                    document.getElementById('sent').addEventListener('click', () => {
+                        folder = 'sent';
+                        fetchEmails('sent');
+                    });
+                    document.getElementById('deleted').addEventListener('click', () => {
+                        folder = 'deleted';
+                        fetchEmails('deleted');
+                    });
+
+                    // Fetch and display inbox emails when the page loads
+                    let folder = 'inbox';
+                    fetchEmails('inbox');
+
+
+                    const newMessageBtn = document.getElementById('new-message');
+                    const composeEmailDiv = document.getElementById('compose-email');
+
+                    newMessageBtn.addEventListener('click', () => {
+                        if (composeEmailDiv.style.display === 'block')
+                            composeEmailDiv.style.display = 'none';
+                        else if (composeEmailDiv.style.display === 'none') {
+                            composeEmailDiv.style.display = 'block';
+                        }
+                    });
+
+                    const emailForm = document.getElementById('email-form');
+                    emailForm.addEventListener('submit', async (event) => {
+                        event.preventDefault();
+
+                        const formData = new FormData(emailForm);
+                        const to = formData.get('to');
+                        const subject = "Subject: " + formData.get('subject');
+                        const body = formData.get('body');
+
+                        const response = await fetch(`${localhosturl}/emails`, {
+                            credentials: "include",
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': "text/plain",
+                            },
+                            body: JSON.stringify({ to, subject, body }),
+                        });
+
+                        if (response.ok) {
+                            emailForm.reset();
+                            M.toast({ html: 'Email sent successfully!', classes: 'green' });
+                        } else {
+                            M.toast({ html: 'Failed to send email!', classes: 'red' });
+                        }
+                    });
+
+                    const emails = [];
+                    const tbody = document.getElementById('emails-table-body');
+                    emails.forEach(email => {
+                        // ...
+                    });
+
+                    const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true';
+
+                    function logout() {
+                        // Send an AJAX request to the server
+                        $.ajax({
+                            type: 'GET',
+                            url: '/logout',
+                            success: function (response, status, jqXHR) {
+                                // Handle the response from the server
+
+                                if (jqXHR.status === 200) {
+                                    // When the user logs in successfully, store their login status in sessionStorage
+                                    sessionStorage.removeItem('isLoggedIn');
+                                    sessionStorage.removeItem('username');
+                                    // redirect to home page
+                                    location.href = "/home";
+                                }
+                            },
+                            error: function (jqXHR, status, error) {
+                                // Handle any errors that occur during the request
+                                alert('An error occurred: ' + error);
+                            }
+                        });
+                    }
+
+                    function reset_password() {
+                        // Send an AJAX request to the server
+                        $.ajax({
+                            type: 'GET',
+                            url: '/logout',
+                            success: function (response, status, jqXHR) {
+                                // Handle the response from the server
+
+                                if (jqXHR.status === 200) {
+                                    // When the user logs in successfully, store their login status in sessionStorage
+                                    sessionStorage.removeItem('isLoggedIn');
+                                    sessionStorage.removeItem('username');
+                                }
+                            },
+                            error: function (jqXHR, status, error) {
+                                // Handle any errors that occur during the request
+                                alert('An error occurred: ' + error);
+                            }
+                        });
+                    }
+
+                    if (isLoggedIn) {
+                        document.getElementById("logged-in-user").innerText = sessionStorage.getItem('username');
+                        document.getElementById("logged-in-status").innerHTML = '<a onclick="logout()" style="font-weight: bold;"> Log out </a>';
+                        document.getElementById('user-icon').innerHTML = '<img style="width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; margin-top: 20%;"src="./images/user_logged.png" alt="User Icon">';
+                    }
+                </script>
+            </section>
+        </div>
+    </main>
+</body>
+
+</html>

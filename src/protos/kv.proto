@@ -1,0 +1,111 @@
+syntax = "proto3";
+
+service KVStore {
+  // standard KV impl
+  rpc Put(PutRequest) returns (PutResponse) {}
+  rpc Get(GetRequest) returns (GetResponse) {}
+  rpc CPut(CPutRequest) returns (CPutResponse) {}
+  rpc Delete(DeleteRequest) returns (DeleteResponse) {}
+  // master -> kv
+  rpc HealthCheck(HealthRequest) returns (HealthResponse) {}
+  rpc PrimaryUpdate(PrimaryRequest) returns (PrimaryResponse) {}
+  // primary -> replica
+  rpc PPut(PutRequest) returns (PutResponse) {}
+  rpc PDelete(DeleteRequest) returns (DeleteResponse) {}
+  // kv -> kv
+  rpc TabletSync(TabletSyncRequest) returns (stream KeyValue) {}
+  // admin -> kv
+  rpc AdminShutdown(ShutdownRequest) returns (ShutdownResponse) {}
+  rpc AdminStartup(StartupRequest) returns (StartupResponse) {}
+  rpc AdminList(ListRequest) returns (ListResponse) {}
+}
+
+
+// ==== requests ====
+// --- kv ---
+message PutRequest {
+  string row = 1;
+  string col = 2;
+  bytes value = 3;  // max len 2^32 bytes (4GiB)
+}
+
+message GetRequest {
+  string row = 1;
+  string col = 2;
+}
+
+message CPutRequest {
+  string row = 1;
+  string col = 2;
+  bytes v1 = 3;  // max len 2^32 bytes (4GiB)
+  bytes v2 = 5;  // max len 2^32 bytes (4GiB)
+}
+
+message DeleteRequest {
+  string row = 1;
+  string col = 2;
+}
+
+// --- master -> kv ---
+message HealthRequest {}
+
+message PrimaryRequest {
+  string addr = 1;  // the new primary for your partition is *addr*
+}
+
+// --- kv -> kv ---
+message TabletSyncRequest {}
+
+// --- admin -> kv ---
+message ShutdownRequest {}
+message StartupRequest {}
+message ListRequest {}
+
+// ==== responses ====
+// --- kv ---
+message PutResponse {
+  uint32 bytes_written = 1;
+}
+
+message GetResponse {
+  KeyValue data = 1;
+}
+
+message CPutResponse {
+  uint32 bytes_written = 1;
+}
+
+message DeleteResponse {
+  uint32 keys_deleted = 1;
+}
+
+// --- master -> kv ---
+message HealthResponse {}
+
+message PrimaryResponse {}
+
+// --- admin -> kv ---
+message ShutdownResponse {}
+message StartupResponse {}
+message ListResponse {
+  message KVPair {
+    string row = 1;
+    string col = 2;
+  }
+  repeated KVPair keys = 1;
+}
+
+// ==== kv store ====
+message Tablet {
+  message Row {
+    map<string, bytes> cols = 1;
+  }
+
+  map<string, Row> rows = 1;
+}
+
+message KeyValue {
+  string row = 1;
+  string col = 2;
+  bytes value = 3;  // max len 2^32 bytes (4GiB)
+}

@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penn Cloud Storage</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        nav {
+            background-color: #0077be;
+        }
+
+        .container {
+            margin-top: 2rem;
+        }
+
+        .folder-icon {
+            color: rgb(105, 178, 255);
+        }
+
+        .file-icon {
+            color: grey;
+        }
+
+        .indent {
+            padding-left: 20px;
+        }
+
+        .rename-icon {
+            font-size: 16px;
+            margin-left: 5px;
+            vertical-align: middle;
+        }
+
+        .file-list .file-icon,
+        .file-list .folder-icon {
+            vertical-align: sub;
+            line-height: normal;
+            margin-right: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <nav>
+            <div class="nav-wrapper">
+                <a href="/home" class="brand-logo" style="margin-left: 15px;">Penn Cloud Storage</a>
+                <ul id="nav-mobile" class="right hide-on-med-and-down">
+                    <li><a href="/home">Home Page</a></li>
+                    <li><a href="/storage">Storage</a></li>
+                    <li><a href="/webmail">Webmail</a></li>
+                    <li><a href="http://localhost:8888">Admin</a></li>
+                    <li id="logged-in-status" style="font-weight: bold;"><a href="/login"> Login </a></li>
+                    <li id="reset-password" style="font-weight: bold;"><a onclick="reset_password()"
+                            href="/reset_password">Reset Password</a></li>
+                    <li><a id="logged-in-user" style="font-weight: bold;"> No User </a></li>
+                    <li id="user-icon"><img
+                            style="width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; margin-top: 20%;"
+                            src="./images/user_icon.png" alt="User Icon"></li>
+                </ul>
+            </div>
+        </nav>
+    </header>
+
+    <main>
+        <div class="row">
+        </div>
+        <div style="margin-left: 15px; margin-right: 15px;">
+            <section class="file-actions">
+                <input type="file" id="file-input">
+                <button onclick="uploadFile()">Upload</button>
+                <button onclick="createNewFolder()">Create New Folder</button> <!-- Add this line -->
+            </section>
+            <div class="row">
+            </div>
+            <section class="file-list">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Filename</th>
+                            <th>Size</th>
+                            <th>Path</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="files-table-body">
+                        <!-- List of files will be populated here -->
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    </main>
+    <div id="move-modal" class="modal">
+        <div class="modal-content">
+            <h4>Move File</h4>
+            <div class="input-field">
+                <input id="target-folder" type="text" required>
+                <label for="target-folder">Target Folder Path</label>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button id="confirm-move" class="modal-close waves-effect waves-green btn-flat">Move</button>
+            <button class="modal-close waves-effect waves-red btn-flat">Cancel</button>
+        </div>
+    </div>
+    <script>
+        let old_path;
+        let localhosturl = "";
+
+        function createFolderRow(folderName, fullPath, indentLevel) {
+            const tr = document.createElement('tr');
+            tr.classList.add('folder-row');
+            tr.dataset.path = fullPath;
+
+            const folderNameCell = document.createElement('td');
+            folderNameCell.colSpan = 2; // Update this line
+            folderNameCell.style.paddingLeft = `${40 * indentLevel}px`; // Add this line
+            folderNameCell.innerHTML = '<i class="material-icons folder-icon">folder</i> ' + folderName; // Update this line
+            tr.appendChild(folderNameCell);
+
+            // Add rename icon for folder rows
+            const renameIcon = document.createElement('i');
+            renameIcon.classList.add('material-icons', 'rename-icon');
+            renameIcon.textContent = 'edit';
+            renameIcon.title = 'Rename';
+            renameIcon.style.cursor = 'pointer';
+            renameIcon.onclick = () => {
+                handleRename(folderName, fullPath, true);
+            };
+            folderNameCell.appendChild(renameIcon);
+
+            const pathCell = document.createElement('td'); // Add this line
+            pathCell.textContent = fullPath + "/"; // Add this line
+            tr.appendChild(pathCell); // Add this line
+
+            const actionsCell = document.createElement('td');
+
+            const deleteFolderBtn = document.createElement('button');
+            deleteFolderBtn.textContent = 'Delete';
+            deleteFolderBtn.style.marginRight = '5px';
+            deleteFolderBtn.onclick = () => {
+                if (confirm('Are you sure you want to delete this folder and its contents?')) {
+                    deleteFile(fullPath + "/");
+                }
+            };
+            actionsCell.appendChild(deleteFolderBtn);
+
+            const moveFolderBtn = document.createElement('button');
+            moveFolderBtn.textContent = 'Move';
+            moveFolderBtn.style.marginRight = '5px';
+            moveFolderBtn.title = 'Move';
+            moveFolderBtn.onclick = () => {
+                old_path = fullPath + "/";
+                const moveModal = M.Modal.getInstance(document.getElementById('move-modal'));
+                moveModal.open();
+            };
+            actionsCell.appendChild(moveFolderBtn);
+
+            tr.appendChild(actionsCell);
+
+            return tr;
+        }
+
+        function createFileRow(fileName, fullPath, indentLevel) {
+            const tr = document.createElement('tr');
+            tr.classList.add('file-row');
+            tr.dataset.path = fullPath;
+
+            const fileNameCell = document.createElement('td');
+            fileNameCell.style.paddingLeft = `${40 * indentLevel}px`; // Add this line
+            fileNameCell.innerHTML = '<i class="material-icons file-icon">insert_drive_file</i> ' + fileName; // Update this line
+            tr.appendChild(fileNameCell);
+
+            const renameIcon = document.createElement('i');
+            renameIcon.classList.add('material-icons', 'rename-icon');
+            renameIcon.textContent = 'edit';
+            renameIcon.title = 'Rename';
+            renameIcon.style.cursor = 'pointer';
+            renameIcon.onclick = () => {
+                handleRename(fileName, fullPath);
+            };
+            fileNameCell.appendChild(renameIcon);
+
+            const sizeCell = document.createElement('td');
+            sizeCell.textContent = '-'; // Replace with actual file size if available
+            tr.appendChild(sizeCell);
+
+            const pathCell = document.createElement('td'); // Add this line
+            pathCell.textContent = fullPath; // Add this line
+            tr.appendChild(pathCell); // Add this line
+
+            const actionsCell = document.createElement('td');
+            const downloadBtn = document.createElement('a');
+            downloadBtn.textContent = 'Download';
+            downloadBtn.style.marginRight = '5px';
+            downloadBtn.href = `${localhosturl}/downloadfile?path=${fullPath}`;
+            downloadBtn.target = '_blank';
+            downloadBtn.classList.add("button");
+            actionsCell.appendChild(downloadBtn);
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.textContent = 'Delete';
+            deleteBtn.style.marginRight = '5px';
+            deleteBtn.onclick = () => {
+                if (confirm('Are you sure you want to delete this file?')) {
+                    deleteFile(fullPath);
+                }
+            };
+            actionsCell.appendChild(deleteBtn);
+
+            const moveBtn = document.createElement('button');
+            moveBtn.textContent = 'Move';
+            moveBtn.style.marginRight = '5px';
+            moveBtn.title = 'Move';
+            moveBtn.onclick = () => {
+                old_path = fullPath;
+                const moveModal = M.Modal.getInstance(document.getElementById('move-modal'));
+                moveModal.open();
+            };
+            actionsCell.appendChild(moveBtn);
+
+            tr.appendChild(actionsCell);
+            return tr;
+        }
+
+        async function handleRename(name, fullPath, isFolder = false) {
+            const newName = prompt(`Enter the new ${isFolder ? 'folder' : 'file'} name:`, name);
+            const type = isFolder ? 'folder' : 'file';
+            if (newName && newName !== name) {
+                try {
+                    const response = await fetch(`${localhosturl}/rename`, {
+                        credentials: "include",
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'plain/text',
+                        },
+                        body: JSON.stringify({ old_path: fullPath, new_name: newName, type }),
+                    });
+
+                    if (response.ok) {
+                        M.toast({ html: `${isFolder ? 'Folder' : 'File'} renamed successfully!`, classes: 'green' });
+                        fetchFiles();
+                    } else {
+                        throw new Error('Failed to rename');
+                    }
+                } catch (error) {
+                    console.error(error);
+                    M.toast({ html: `Error renaming ${isFolder ? 'folder' : 'file'}!`, classes: 'red' });
+                }
+            }
+        }
+
+        function createFileTree(files) {
+            const rootNode = { name: '/', children: [] };
+            files.forEach(file => {
+                const pathParts = file.split('/');
+                let currentNode = rootNode;
+                pathParts.forEach((part, index) => {
+                    const isFile = index === pathParts.length - 1;
+                    if (part !== '') {
+                        let childNode = currentNode.children.find(child => child.name === part);
+                        if (!childNode) {
+                            childNode = { name: part, children: [], isFile };
+                            currentNode.children.push(childNode);
+                        }
+                        currentNode = childNode;
+                    }
+                });
+            });
+            return rootNode;
+        }
+
+        function renderFileTree(node, parentElement, path = '', indentLevel = 0) {
+            const fullPath = path ? `${path}/${node.name}` : node.name;
+            if (node.isFile) {
+                const fileRow = createFileRow(node.name, fullPath, indentLevel);
+                parentElement.appendChild(fileRow);
+            } else {
+                const folderRow = createFolderRow(node.name, fullPath, indentLevel);
+                parentElement.appendChild(folderRow);
+                folderRow.addEventListener('click', (event) => {
+                    if (event.target.tagName === 'BUTTON' || event.target.tagName === 'I') {
+                        event.stopPropagation();
+                        return;
+                    }
+                    const isExpanded = folderRow.classList.toggle('expanded');
+                    node.children.forEach(child => {
+                        const childPath = `${fullPath}/${child.name}`;
+                        const childRow = parentElement.querySelector(`[data-path="${childPath}"]`);
+                        childRow.style.display = isExpanded ? '' : 'none';
+                    });
+                });
+
+                node.children.forEach(child => {
+                    renderFileTree(child, parentElement, fullPath, indentLevel + 1);
+                    const childPath = `${fullPath}/${child.name}`;
+                    const childRow = parentElement.querySelector(`[data-path="${childPath}"]`);
+                    childRow.style.display = 'none';
+                });
+            }
+        }
+
+        async function uploadFile() {
+            const fileInput = document.getElementById('file-input');
+            const file = fileInput.files[0];
+            if (!file) {
+                M.toast({ html: 'No file selected!', classes: 'red' });
+                return;
+            }
+            try {//TODO
+                const response = await fetch(`${localhosturl}/uploadfile?name=${file.name}`, {
+                    credentials: "include",
+                    method: 'POST',
+                    body: file,
+                });
+
+                if (response.ok) {
+                    M.toast({ html: 'File uploaded successfully!', classes: 'green' });
+                    fileInput.value = '';
+                    fetchFiles();
+                } else {
+                    throw new Error('Failed to upload file');
+                }
+            } catch (error) {
+                console.error(error);
+                M.toast({ html: 'Error uploading file!', classes: 'red' });
+            }
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            const moveModal = document.getElementById('move-modal');
+            M.Modal.init(moveModal);
+        });
+        const confirmMoveButton = document.getElementById('confirm-move');
+        confirmMoveButton.addEventListener('click', () => {
+            const target_path = document.getElementById('target-folder').value;
+            moveFile(old_path, target_path);
+        });
+
+        async function fetchFiles() {
+            try {
+                const response = await fetch(`${localhosturl}/files`, {
+                    credentials: "include"
+                });
+                if (response.ok) {
+                    const filesString = await response.text();
+                    if (filesString != "") {
+                        const files = filesString.split(',');
+                        populateFiles(files);
+                    }
+                } else {
+                    throw new Error('Failed to fetch files');
+                }
+            } catch (error) {
+                console.error(error);
+                M.toast({ html: 'Error fetching files!', classes: 'red' });
+            }
+        }
+
+        async function downloadFile(fullPath) {
+            try {
+                const response = await fetch(`${localhosturl}/downloadfile`, {
+                    credentials: "include",
+                    body: fullPath
+                });
+                if (response.ok) { //TODO
+                    const blob = await response.blob();
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = fullPath.split('/').pop();
+                    a.target = '_blank'; // Add this line to open the download in a new tab/window
+                    a.style.display = 'none'; // Add this line to hide the temporary link
+                    document.body.appendChild(a); // Add this line to add the temporary link to the DOM
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    document.body.removeChild(a); // Add this line to remove the temporary link from the DOM
+                } else {
+                    throw new Error('Failed to download file');
+                }
+            } catch (error) {
+                console.error(error);
+                M.toast({ html: 'Error downloading file!', classes: 'red' });
+            }
+        }
+
+        async function moveFile(old_path, target_path) {
+            const moveURL = old_path.endsWith('/') ? `${localhosturl}/movefolder` : `${localhosturl}/movefile`;
+            try {
+                const response = await fetch(moveURL, {
+                    credentials: "include",
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': "text/plain"
+                    },
+                    body: JSON.stringify({ old_path, target_path }),
+                });
+
+                if (response.ok) {
+                    M.toast({ html: 'Item moved successfully!', classes: 'green' });
+                    fetchFiles();
+                } else {
+                    throw new Error('Failed to move item');
+                }
+            } catch (error) {
+                console.error(error);
+                M.toast({ html: 'Error moving item!', classes: 'red' });
+            }
+        }
+
+        async function createNewFolder() {
+            const folderName = prompt('Enter the name of the new folder:');
+            if (folderName) {
+                try {
+                    const response = await fetch(`${localhosturl}/createfolder`, {
+                        credentials: "include",
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': "text/plain",
+                        },
+                        body: JSON.stringify({ folderName }),
+                    });
+
+                    if (response.ok) {
+                        M.toast({ html: 'New folder created successfully!', classes: 'green' });
+                        fetchFiles();
+                    } else {
+                        throw new Error('Failed to create new folder');
+                    }
+                } catch (error) {
+                    console.error(error);
+                    M.toast({ html: 'Error creating new folder!', classes: 'red' });
+                }
+            }
+        }
+
+        function openFolder(folderName) {
+            fetchFiles(folderName);
+        }
+
+        async function deleteFile(path) {
+            try {
+                if (path.endsWith('/')) {
+                    const response = await fetch(`${localhosturl}/deletefolder`, {
+                        credentials: "include",
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': "text/plain"
+                        },
+                        body: path,
+                    });
+
+                    if (response.ok) {
+                        M.toast({ html: 'Folder deleted successfully!', classes: 'green' });
+                        fetchFiles();
+                    } else {
+                        throw new Error('Failed to delete folder');
+                    }
+                    return;
+                } else {
+                    const response = await fetch(`${localhosturl}/deletefile`, {
+                        credentials: "include",
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': "text/plain"
+                        },
+                        body: path,
+                    });
+
+                    if (response.ok) {
+                        M.toast({ html: 'File deleted successfully!', classes: 'green' });
+                        fetchFiles();
+                    } else {
+                        throw new Error('Failed to delete file');
+                    }
+                    return;
+                }
+            } catch (error) {
+                console.error(error);
+                M.toast({ html: 'Error deleting folder/file!', classes: 'red' });
+            }
+        }
+
+        function populateFiles(files) {
+            if (files) {
+                const fileTree = createFileTree(files);
+                const tbody = document.getElementById('files-table-body');
+                tbody.innerHTML = '';
+                fileTree.children.forEach(child => renderFileTree(child, tbody));
+            }
+        }
+
+        // Fetch and display files when the page loads
+        fetchFiles();
+
+
+        const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true';
+
+        function logout() {
+            // Send an AJAX request to the server
+            $.ajax({
+                type: 'GET',
+                url: '/logout',
+                success: function (response, status, jqXHR) {
+                    // Handle the response from the server
+
+                    if (jqXHR.status === 200) {
+                        // When the user logs in successfully, store their login status in sessionStorage
+                        sessionStorage.removeItem('isLoggedIn');
+                        sessionStorage.removeItem('username');
+                        // redirect to home page
+                        location.href = "/home";
+                    }
+                },
+                error: function (jqXHR, status, error) {
+                    // Handle any errors that occur during the request
+                    alert('An error occurred: ' + error);
+                }
+            });
+        }
+
+        function reset_password() {
+            // Send an AJAX request to the server
+            $.ajax({
+                type: 'GET',
+                url: '/logout',
+                success: function (response, status, jqXHR) {
+                    // Handle the response from the server
+
+                    if (jqXHR.status === 200) {
+                        // When the user logs in successfully, store their login status in sessionStorage
+                        sessionStorage.removeItem('isLoggedIn');
+                        sessionStorage.removeItem('username');
+                    }
+                },
+                error: function (jqXHR, status, error) {
+                    // Handle any errors that occur during the request
+                    alert('An error occurred: ' + error);
+                }
+            });
+        }
+
+        if (isLoggedIn) {
+            document.getElementById("logged-in-user").innerText = sessionStorage.getItem('username');
+            document.getElementById("logged-in-status").innerHTML = '<a onclick="logout()" style="font-weight: bold;"> Log out </a>';
+            document.getElementById('user-icon').innerHTML = '<img style="width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; margin-top: 20%;"src="./images/user_logged.png" alt="User Icon">';
+        }
+    </script>
+</body>
+
+</html>

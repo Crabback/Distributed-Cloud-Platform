@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <title>Penn Cloud Admin</title>
+  <meta charset="UTF-8">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <style>
+    nav {
+      background-color: #0077be;
+    }
+  </style>
+</head>
+<body>
+  <head>
+    <nav>
+      <div class="nav-wrapper">
+        <a href=" " class="brand-logo" style="margin-left: 15px;">Penn Cloud Admin</a >
+        <ul id="nav-mobile" class="right hide-on-med-and-down">
+          <li><a href="http://127.0.0.1:8090/home">Home Page</a ></li>
+          <li><a href="http://127.0.0.1:8090/storage">Storage</a ></li>
+          <li><a href="http://127.0.0.1:8090/webmail">Webmail</a ></li>
+          <li><a href="http://localhost:8888">Admin</a ></li>
+          <li id="logged-in-status" style="font-weight: bold;"><a href="/login"> Login </a ></li>
+          <li id="reset-password" style="font-weight: bold;"><a onclick="reset_password()" href="/reset_password">Reset Password</a></li>
+          <li><a id="logged-in-user" style="font-weight: bold;"> No User </a ></li>
+          <li id="user-icon"><img
+              style="width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; margin-top: 20%;"
+              src="./images/user_icon.png" alt="User Icon"></li>
+        </ul>
+      </div>
+    </nav>
+  </head>
+  <div class="row">
+  </div>
+  <div class="row">
+    <div class="col s6">
+      <div class="card">
+        <div class="card-content">
+          <span class="card-title">Frontend Servers</span>
+          <table class="striped">
+            <thead>
+              <tr>
+                <th>Server Name</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="frontend-table-body">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="col s6">
+      <div class="card">
+        <div class="card-content">
+          <span class="card-title">Backend Servers</span>
+          <table class="striped">
+            <thead>
+              <tr>
+                <th>Server Name</th>
+                <th>Status</th>
+                <th>Action</th>
+              </tr>
+            </thead>
+            <tbody id="backend-table-body">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div>
+  	
+    <table>
+      <thead>
+        <tr>
+          <th>Row</th>
+          <th>Col</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody id="key-value-table">
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+  	
+    const frontend_servers = [
+      {
+        "id": 0,
+        "status": "running",
+      },
+      {
+        "id": 1,
+        "status": "stopped",
+      },
+      {
+        "id": 2,
+        "status": "stopped",
+      }
+    ];
+
+    const backend_servers = [
+      {
+        "id": 0,
+        "status": "running"
+      },
+      {
+        "id": 1,
+        "status": "running"
+      },
+      {
+        "id": 2,
+        "status": "running"
+      },
+      {
+        "id": 3,
+        "status": "running"
+      },
+      {
+        "id": 4,
+        "status": "running"
+      },
+      {
+        "id": 5,
+        "status": "running"
+      },
+      {
+        "id": 6,
+        "status": "running"
+      },
+      {
+        "id": 7,
+        "status": "running"
+      },
+      {
+        "id": 8,
+        "status": "running"
+      }
+    ];
+
+    const tbody_f = document.getElementById('frontend-table-body');
+    const tbody_b = document.getElementById('backend-table-body');
+
+    function sendRequest(serverType, serverId, action) {
+	  const url = '/action';
+	
+	  $.ajax({
+	    type: 'POST',
+	    url: url,
+	    data: {
+	      serverType: serverType,
+	      serverId: serverId,
+	      action: action
+	    },
+	    success: function (response, status, jqXHR) {
+	      // Handle the response from the server
+	      console.log(response);
+	      if (response === "200 OK") {
+	        // Refresh the page to update the server status
+	        location.reload();
+	      }
+	    },
+	    error: function (jqXHR, status, error) {
+	      // Handle any errors that occur during the request
+	      alert('An error occurred: ' + error);
+	    },
+	  });
+	}
+	
+	
+	$.ajax({
+	  type: 'GET',
+	  url: '/key_value',
+	  success: function(response) {
+	    // Get a reference to the table body
+	    var tableBody = document.getElementById('key-value-table');
+	    
+	    if (response) {
+	
+		    // Iterate over the data and create table rows and cells
+		    for (var i = 0; i < response.length; i++) {
+		      var row = document.createElement('tr');
+		      var keyCell = document.createElement('td');
+		      keyCell.textContent = response[i].key;
+		      var valueCell = document.createElement('td');
+		      valueCell.textContent = response[i].value;
+		      
+		      var detailsCell = document.createElement('td');
+		      var detailsButton = document.createElement('button');
+		      detailsButton.textContent = 'Check';
+		      detailsButton.setAttribute('name', 'details');
+		      detailsButton.id = response[i].key + ',' + response[i].value; // set the unique ID of the button
+		      detailsCell.appendChild(detailsButton);
+		      row.appendChild(keyCell);
+		      row.appendChild(valueCell);
+		      row.appendChild(detailsCell);
+		      tableBody.appendChild(row);
+		      
+		      // Add event listener to the button
+				  detailsButton.addEventListener('click', function(event) {
+				    // Get the key and value from the button ID
+				    var id = event.target.id;
+				    var key = id.split(',')[0];
+				    var value = id.split(',')[1];
+				
+				    // Send a request to the server with the key and value pair
+				    $.ajax({
+				      type: 'POST',
+				      url: '/details',
+				      data: {key: key, value: value},
+				      success: function(response, textStatus, errorThrown) {
+				        // Handle the response from the server
+				        console.log(response);
+				        console.log(errorThrown);
+				        if (response != "cannot get value") {
+						    alert(response);
+						}  
+				      },
+				      error: function(jqXHR, textStatus, errorThrown) {
+				        console.error('An error occurred: ' + errorThrown);
+				      }
+				    });	
+			 	   });
+		 		}
+		 	}
+		},
+		  error: function(jqXHR, textStatus, errorThrown) {
+		    console.error('An error occurred: ' + errorThrown);
+		  }
+	});
+	
+	setInterval(function() {
+	  for (let i = 0; i < frontend_servers.length; i++) { // frontend
+	    $.ajax({
+	      type: 'POST',
+	      url: "/status",
+	      data: {
+	        serverType: 'frontend',
+	        serverId: i
+	      },
+	      success: function (response, status, jqXHR) {
+			  console.log("Frontend server", i, "response:", response, "status:", status, "jqXHR status:", jqXHR.status);
+			  let serverElem = document.getElementById(`fe${i}-status`);
+			  let serverAction = document.getElementById(`fe${i}-action`);
+			  if (response.indexOf("503") !== -1) {
+			    serverElem.textContent = 'stopped';
+			    serverAction.textContent = 'restart';
+			  } else {
+			    serverElem.textContent = 'running';
+			    serverAction.textContent = 'shutdown';
+			  }
+		  },
+
+	      error: function(jqXHR, textStatus, errorThrown) {
+	        console.error("An error occurred: " + errorThrown);
+	      }
+	    });
+	  }
+	  for (let i = 0; i < backend_servers.length; i++) { // backend
+	    $.ajax({
+	      type: 'POST',
+	      url: "/status",
+	      data: {
+	        serverType: 'backend',
+	        serverId: i
+	      },
+	      success: function (response, status, jqXHR) {
+			  console.log("Backend server", i, "response:", response, "status:", status, "jqXHR status:", jqXHR.status);
+			  let serverElem = document.getElementById(`be${i}-status`);
+			  let serverAction = document.getElementById(`be${i}-action`);
+			  if (response.indexOf("503") !== -1) {
+			    serverElem.textContent = 'stopped';
+			    serverAction.textContent = 'restart';
+			  } else {
+			    serverElem.textContent = 'running';
+			    serverAction.textContent = 'shutdown';
+			  }
+		  },
+	      error: function(jqXHR, textStatus, errorThrown) {
+	        console.error("An error occurred: " + errorThrown);
+	      }
+	    });
+	  }
+	  
+	}, 2000);
+
+    function createButtonCell(serverType, serverId, action) {
+	  const buttonCell = document.createElement('td');
+	  const button = document.createElement('button');
+	  button.textContent = action;
+	  button.onclick = () => {
+	    // Change the action based on the current status of the server
+	    const currentStatus = document.getElementById(`${serverType === 'frontend' ? 'fe' : 'be'}${serverId}-status`).textContent;
+	    const newAction = currentStatus === 'running' ? 'shutdown' : 'restart';
+	    sendRequest(serverType, serverId, newAction);
+	  };
+	  button.id = `${serverType === 'frontend' ? 'fe' : 'be'}${serverId}-action`; // Add an ID to the button for updating its text later
+	  buttonCell.appendChild(button);
+	  return buttonCell;
+	}
+    
+    frontend_servers.forEach(server => {
+	  const tr = document.createElement('tr');
+	
+	  const idCell = document.createElement('td');
+	  idCell.appendChild(document.createTextNode(server.id));
+	  tr.appendChild(idCell);
+
+	
+	  const statusCell = document.createElement('td');
+	  statusCell.id = `fe${server.id}-status`;
+	  statusCell.textContent = server.status;
+	  tr.appendChild(statusCell);
+	  
+	  tr.appendChild(createButtonCell('frontend', server.id, server.status));
+	
+	  //tr.appendChild(createButtonCell('frontend', server.id, server.status === 'running' ? 'shutdown' : 'restart'));
+	
+	  tbody_f.appendChild(tr);
+	});
+
+	backend_servers.forEach(server => {
+	  const tr = document.createElement('tr');
+	
+	  const idCell = document.createElement('td');
+	  idCell.appendChild(document.createTextNode(server.id));
+	  tr.appendChild(idCell);
+	
+	  const statusCell = document.createElement('td');
+	  statusCell.id = `be${server.id}-status`;
+	  statusCell.textContent = server.status;
+	  tr.appendChild(statusCell);
+	  
+	  tr.appendChild(createButtonCell('backend', server.id, server.status));
+	  
+	  //tr.appendChild(createButtonCell('backend', server.id, server.status === 'running' ? 'shutdown' : 'restart'));
+	  
+	  tbody_b.appendChild(tr);
+	});
+	
+	
+	
+	const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true';
+
+    function logout() {
+        // Send an AJAX request to the server
+       	$.ajax({
+          type: 'GET',
+          url: '/logout',
+          success: function(response, status, jqXHR) {
+            // Handle the response from the server
+            
+            if (jqXHR.status === 200) {
+            	// When the user logs in successfully, store their login status in sessionStorage
+				sessionStorage.removeItem('isLoggedIn');
+				sessionStorage.removeItem('username');
+		        // redirect to home page
+		        location.href = "/home";
+		    }
+        },
+        error: function(jqXHR, status, error) {
+        // Handle any errors that occur during the request
+        alert('An error occurred: ' + error);
+      }
+    });
+    }
+    
+    function reset_password() {
+        // Send an AJAX request to the server
+       	$.ajax({
+          type: 'GET',
+          url: '/logout',
+          success: function(response, status, jqXHR) {
+            // Handle the response from the server
+          
+            if (jqXHR.status === 200) {
+            	// When the user logs in successfully, store their login status in sessionStorage
+				sessionStorage.removeItem('isLoggedIn');
+				sessionStorage.removeItem('username');
+		    }
+        },
+        error: function(jqXHR, status, error) {
+        // Handle any errors that occur during the request
+        alert('An error occurred: ' + error);
+      }
+    });
+    }
+
+    if (isLoggedIn) {
+        document.getElementById("logged-in-user").innerText = sessionStorage.getItem('username');
+        document.getElementById("logged-in-status").innerHTML = '<a onclick="logout()" style="font-weight: bold;"> Log out </a>';
+        document.getElementById('user-icon').innerHTML = '<img style="width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; margin-top: 20%;"src="./images/user_logged.png" alt="User Icon">';
+    }
+  </script>
+</body>
+</html>

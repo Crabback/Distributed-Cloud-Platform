@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penn Cloud</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/css/materialize.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/materialize/1.0.0/js/materialize.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        nav {
+            background-color: #0077be;
+        }
+
+        .container {
+            margin-top: 2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <nav>
+        <div class="nav-wrapper">
+            <a href="/home" class="brand-logo" style="margin-left: 15px;">Penn Cloud</a>
+            <ul id="nav-mobile" class="right hide-on-med-and-down">
+                <li><a href="/home">Home Page</a></li>
+                <li><a href="/storage">Storage</a></li>
+                <li><a href="/webmail">Webmail</a></li>
+                <li><a href="http://localhost:8888">Admin</a></li>
+                <li id="logged-in-status" style="font-weight: bold;"><a href="/login"> Login </a></li>
+                <li id="reset-password" style="font-weight: bold;"><a onclick="reset_password()" href="/reset_password">Reset Password</a></li>
+                <li><a id="logged-in-user" style="font-weight: bold;"> No User </a></li>
+                <li id="user-icon"><img
+                        style="width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; margin-top: 20%;"
+                        src="./images/user_icon.png" alt="User Icon"></li>
+            </ul>
+        </div>
+    </nav>
+    <div class="container">
+        <h1>Welcome to Penn Cloud</h1>
+        <p>Click the links in the navigation bar to access Simple Storage, Webmail, or the Admin dashboard.</p>
+    </div>
+
+    <script>
+        const isLoggedIn = sessionStorage.getItem('isLoggedIn') === 'true';
+        if (!isLoggedIn) { // there may be user open new tab or some error due to server
+        	// Send an AJAX request to the server
+	       	$.ajax({
+	          type: 'GET',
+	          url: '/hello',
+	          success: function(response, status, jqXHR) {
+	            // Handle the response from the server
+	          	console.log(response);
+	            if (response !== "401 Unauthorized") {
+	            	sessionStorage.setItem('isLoggedIn', 'true');
+					sessionStorage.setItem('username', response);
+			    } 
+	        },
+	        error: function(jqXHR, status, error) {
+            // Handle any errors that occur during the request
+            alert('An error occurred: ' + error);
+          }
+        });
+        }
+
+        function logout() {
+	        // Send an AJAX request to the server
+	       	$.ajax({
+	          type: 'GET',
+	          url: '/logout',
+	          success: function(response, status, jqXHR) {
+	            // Handle the response from the server
+	          
+	            if (jqXHR.status === 200) {
+	            	// When the user logs in successfully, store their login status in sessionStorage
+					sessionStorage.removeItem('isLoggedIn');
+					sessionStorage.removeItem('username');
+			        // redirect to home page
+			        location.reload();
+			    }
+	        },
+	        error: function(jqXHR, status, error) {
+            // Handle any errors that occur during the request
+            alert('An error occurred: ' + error);
+          }
+        });
+        }
+        
+        function reset_password() {
+	        // Send an AJAX request to the server
+	       	$.ajax({
+	          type: 'GET',
+	          url: '/logout',
+	          success: function(response, status, jqXHR) {
+	            // Handle the response from the server
+	          
+	            if (jqXHR.status === 200) {
+	            	// When the user logs in successfully, store their login status in sessionStorage
+					sessionStorage.removeItem('isLoggedIn');
+					sessionStorage.removeItem('username');
+			    }
+	        },
+	        error: function(jqXHR, status, error) {
+            // Handle any errors that occur during the request
+            alert('An error occurred: ' + error);
+          }
+        });
+        }
+        
+        if (isLoggedIn) {
+            document.getElementById("logged-in-user").innerText = sessionStorage.getItem('username');
+            console.log(sessionStorage.getItem('username'));
+            document.getElementById("logged-in-status").innerHTML = '<a onclick="logout()" style="font-weight: bold;"> Log out </a>';
+            document.getElementById('user-icon').innerHTML = '<img style="width: 40px; height: 40px; border-radius: 50%; margin-right: 15px; margin-top: 20%;"src="./images/user_logged.png" alt="User Icon">';
+        }
+    </script>
+</body>
+
+</html>
